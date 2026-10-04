@@ -373,7 +373,10 @@ async function fillPdf(row, rowNumber, matchedCodes){
   draw(cell(row,"manufacturerName"), 151, 90, 245, 7.5);
 
   // 37. Submitter name = Shipper Attn / Shipper Attention
-  draw(String(row[6] ?? "").trim(), 116, 74, 255, 7.5); // Part V Item 37: always read physical Column G
+  // Prefer physical Column G; if it is blank, fall back to a matching header.
+  const shipperAttnHeaderIndex = headers.findIndex(h => /shipper\\s*(attn|attention)|shipper attention/i.test(String(h ?? "").trim()));
+  const shipperAttnValue = String(row[6] ?? "").trim() || (shipperAttnHeaderIndex >= 0 ? String(row[shipperAttnHeaderIndex] ?? "").trim() : "");
+  draw(shipperAttnValue, 116, 74, 255, 7.5);
 
   // 38. Submitter phone number = Column J (Manufacturer Phone in uploaded Excel)
   // Positioned on the item 38 field, beside the submitter name row.
@@ -434,7 +437,7 @@ async function scan(){
     const r=hitRows[i].row;
     const url=URL.createObjectURL(new Blob([f.bytes],{type:"application/pdf"}));
     f.url=url;
-    html+=`<tr><td>${i+1}</td><td>${esc(r[0]||"")}</td><td>${esc(cell(r,"manufacturerName"))}</td><td>${esc(String(r[6] ?? "").trim())}</td><td>${f.matchedCodes.map(c=>`<span class="badge">${esc(c)}</span>`).join(" ")}</td><td><a class="view-btn" href="${url}" target="_blank" rel="noopener">View PDF</a><a href="${url}" download="${esc(f.name)}">Download PDF</a></td></tr>`;
+    html+=`<tr><td>${i+1}</td><td>${esc(r[0]||"")}</td><td>${esc(cell(r,"manufacturerName"))}</td><td>${esc(String(r[6] ?? "").trim() || (headers.findIndex(h => /shipper\\s*(attn|attention)|shipper attention/i.test(String(h ?? "").trim())) >= 0 ? String(r[headers.findIndex(h => /shipper\\s*(attn|attention)|shipper attention/i.test(String(h ?? "").trim()))] ?? "").trim() : ""))}</td><td>${f.matchedCodes.map(c=>`<span class="badge">${esc(c)}</span>`).join(" ")}</td><td><a class="view-btn" href="${url}" target="_blank" rel="noopener">View PDF</a><a href="${url}" download="${esc(f.name)}">Download PDF</a></td></tr>`;
   });
   html+=`</tbody></table>`;
   document.getElementById("results").innerHTML=html;
