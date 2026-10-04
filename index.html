@@ -374,7 +374,7 @@ async function fillPdf(row, rowNumber, matchedCodes){
   draw(cell(row,"manufacturerName"), 151, 90, 245, 7.5);
 
   // 37. Submitter name = Shipper Attn / Shipper Attention
-  draw(row[6] ?? "", 116, 74, 255, 7.5); // ALWAYS use Column G — Shipper Attn for Part V Item 37
+  draw(cell(row,"consigneeAttn"), 116, 74, 255, 7.5); // Use the selected/detected Shipper Attention column for Part V Item 37
 
   // 38. Submitter phone number = Column J (Manufacturer Phone in uploaded Excel)
   // Positioned on the item 38 field, beside the submitter name row.
@@ -435,7 +435,7 @@ async function scan(){
     const r=hitRows[i].row;
     const url=URL.createObjectURL(new Blob([f.bytes],{type:"application/pdf"}));
     f.url=url;
-    html+=`<tr><td>${i+1}</td><td>${esc(r[0]||"")}</td><td>${esc(cell(r,"manufacturerName"))}</td><td>${esc(r[6] ?? "")}</td><td>${f.matchedCodes.map(c=>`<span class="badge">${esc(c)}</span>`).join(" ")}</td><td><a class="view-btn" href="${url}" target="_blank" rel="noopener">View PDF</a><a href="${url}" download="${esc(f.name)}">Download PDF</a></td></tr>`;
+    html+=`<tr><td>${i+1}</td><td>${esc(r[0]||"")}</td><td>${esc(cell(r,"manufacturerName"))}</td><td>${esc(cell(r,"consigneeAttn"))}</td><td>${f.matchedCodes.map(c=>`<span class="badge">${esc(c)}</span>`).join(" ")}</td><td><a class="view-btn" href="${url}" target="_blank" rel="noopener">View PDF</a><a href="${url}" download="${esc(f.name)}">Download PDF</a></td></tr>`;
   });
   html+=`</tbody></table>`;
   document.getElementById("results").innerHTML=html;
@@ -472,14 +472,15 @@ document.getElementById("dataFile").addEventListener("change", async e=>{
     populateSelect("manufacturerPhone","manufacturerPhone");
     populateSelect("manufacturerEmail","manufacturerEmail");
     populateSelect("consigneeAttn","consigneeAttn");
-    // Select the actual Shipper Attn/Attention column by its header, not a fixed column letter.
-    document.getElementById("consigneeAttn").value = "6"; // Fixed source: Column G — Shipper Attn
+    // Shipper Attn is confirmed to be Column G in this CPSC source file.
+    // Force index 6 (Column G) so Submitter Name / Part V Item 37 uses Shipper Attn.
+    document.getElementById("consigneeAttn").value="6";
     document.getElementById("manufacturerName").value="7";    // Column H
     document.getElementById("manufacturerAddress").value="8"; // Column I
     populateSelect("submitterSignature","consigneeAttn");
     document.getElementById("submitterSignature").value="10"; // Column K
     document.getElementById("scanBtn").disabled=false;
-    status.innerHTML=`<div class="status ok">Loaded <b>${esc(file.name)}</b> — ${workbookRows.length} data row(s), ${headers.length} column(s). Column T header: <b>${esc(headers[19])}</b> | Manufacturer Name: H | Manufacturer Address: I.</div>`;
+    status.innerHTML=`<div class="status ok">Loaded <b>${esc(file.name)}</b> — ${workbookRows.length} data row(s), ${headers.length} column(s). Column T header: <b>${esc(headers[19])}</b> | Shipper Attention column: <b>${esc(headers[Number(document.getElementById("consigneeAttn").value)] || "Not detected")}</b> | Manufacturer Name: H | Manufacturer Address: I.</div>`;
     document.getElementById("scanStatus").innerHTML="";
     document.getElementById("results").innerHTML="";
     document.getElementById("zipBtn").disabled=true;
