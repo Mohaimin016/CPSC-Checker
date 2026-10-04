@@ -246,6 +246,11 @@ function populateSelect(id, kind, allowBlank=true){
   if(best>=0) el.value=String(best);
 }
 function cell(row, id){ const i=document.getElementById(id).value; return i==="" ? "" : String(row[Number(i)] ?? "").trim(); }
+// Always resolve Shipper Attention by its CSV header first; fall back to fixed Column G only if header is absent.
+function getShipperAttn(row){
+  const idx = headers.findIndex(h => ["shipper attn","shipper attention","shipper contact","shipper name"].includes(normHeader(h)));
+  return String(row[idx >= 0 ? idx : 6] ?? "").trim();
+}
 function todayLocal(){
   const d=new Date();
   return {d, str:`${String(d.getDate()).padStart(2,"0")}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getFullYear()).slice(-2)}`};
@@ -374,7 +379,7 @@ async function fillPdf(row, rowNumber, matchedCodes){
   draw(cell(row,"manufacturerName"), 151, 90, 245, 7.5);
 
   // 37. Submitter name = Shipper Attn / Shipper Attention
-  draw(String(row[6] ?? "").trim(), 116, 74, 255, 7.5); // Part V Item 37: always use Column G (Shipper Attention)
+  draw(getShipperAttn(row), 116, 74, 255, 7.5); // Part V Item 37: Shipper Attn header, fallback Column G
 
   // 38. Submitter phone number = Column J (Manufacturer Phone in uploaded Excel)
   // Positioned on the item 38 field, beside the submitter name row.
@@ -435,7 +440,7 @@ async function scan(){
     const r=hitRows[i].row;
     const url=URL.createObjectURL(new Blob([f.bytes],{type:"application/pdf"}));
     f.url=url;
-    html+=`<tr><td>${i+1}</td><td>${esc(r[0]||"")}</td><td>${esc(cell(r,"manufacturerName"))}</td><td>${esc(String(r[6] ?? "").trim())}</td><td>${f.matchedCodes.map(c=>`<span class="badge">${esc(c)}</span>`).join(" ")}</td><td><a class="view-btn" href="${url}" target="_blank" rel="noopener">View PDF</a><a href="${url}" download="${esc(f.name)}">Download PDF</a></td></tr>`;
+    html+=`<tr><td>${i+1}</td><td>${esc(r[0]||"")}</td><td>${esc(cell(r,"manufacturerName"))}</td><td>${esc(getShipperAttn(r))}</td><td>${f.matchedCodes.map(c=>`<span class="badge">${esc(c)}</span>`).join(" ")}</td><td><a class="view-btn" href="${url}" target="_blank" rel="noopener">View PDF</a><a href="${url}" download="${esc(f.name)}">Download PDF</a></td></tr>`;
   });
   html+=`</tbody></table>`;
   document.getElementById("results").innerHTML=html;
@@ -480,7 +485,7 @@ document.getElementById("dataFile").addEventListener("change", async e=>{
     populateSelect("submitterSignature","consigneeAttn");
     document.getElementById("submitterSignature").value="10"; // Column K
     document.getElementById("scanBtn").disabled=false;
-    status.innerHTML=`<div class="status ok">Loaded <b>${esc(file.name)}</b> — ${workbookRows.length} data row(s), ${headers.length} column(s). Column T header: <b>${esc(headers[19])}</b> | Shipper Attention column: <b>${esc(headers[Number(document.getElementById("consigneeAttn").value)] || "Not detected")}</b> | Manufacturer Name: H | Manufacturer Address: I.</div>`;
+    status.innerHTML=`<div class="status ok">Loaded <b>${esc(file.name)}</b> — ${workbookRows.length} data row(s), ${headers.length} column(s). Column T header: <b>${esc(headers[19])}</b> | Shipper Attention column: <b>${esc(headers.find(h => ["shipper attn","shipper attention","shipper contact","shipper name"].includes(normHeader(h))) || headers[6] || "Not detected")}</b> | Manufacturer Name: H | Manufacturer Address: I.</div>`;
     document.getElementById("scanStatus").innerHTML="";
     document.getElementById("results").innerHTML="";
     document.getElementById("zipBtn").disabled=true;
