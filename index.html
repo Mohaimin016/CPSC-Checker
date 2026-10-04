@@ -480,7 +480,7 @@ document.getElementById("dataFile").addEventListener("change", async e=>{
     document.getElementById("manufacturerName").value="7";    // Column H
     document.getElementById("manufacturerAddress").value="8"; // Column I
     populateSelect("submitterSignature","consigneeAttn");
-    document.getElementById("submitterSignature").value="10"; // Column G
+    document.getElementById("submitterSignature").value="6"; // Column G
     document.getElementById("scanBtn").disabled=false;
     status.innerHTML=`<div class="status ok">Loaded <b>${esc(file.name)}</b> — ${workbookRows.length} data row(s), ${headers.length} column(s). Column T header: <b>${esc(headers[19])}</b> | Shipper Attention source: <b>Column G — ${esc(headers[6] || "Column G header missing")}</b> | Manufacturer Name: H | Manufacturer Address: I.</div>`;
     document.getElementById("scanStatus").innerHTML="";
