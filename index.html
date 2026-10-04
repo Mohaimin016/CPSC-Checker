@@ -158,7 +158,7 @@ body.cpsc-locked { overflow: hidden; }
       <div class="field"><label>Manufacturer address — Column I</label><select id="manufacturerAddress" disabled></select></div>
       <div class="field"><label>Manufacturer phone</label><select id="manufacturerPhone"></select></div>
       <div class="field"><label>Manufacturer email</label><select id="manufacturerEmail" disabled><option value="">Blank — not written to PDF</option></select></div>
-      <div class="field"><label>Submitter name — Authorized Person</label><select id="consigneeAttn"></select></div>
+      <div class="field"><label>Submitter name — Shipper Attn</label><select id="consigneeAttn"></select></div>
       <div class="field"><label>Submitter signature — Column K</label><select id="submitterSignature" disabled></select></div>
     </div>
     <p class="note">
@@ -217,7 +217,7 @@ function candidateScore(header, kind){
     manufacturerAddress:["manufacturer address","manufacturer addr","manufacturer location"],
     manufacturerPhone:["manufacturer phone","manufacturer phone number","manufacturer tel","manufacturer telephone"],
     manufacturerEmail:["manufacturer email","manufacturer email address"],
-    consigneeAttn:["authorized person","authorized person name","authorized by","shipper attn","shipper attention"]
+    consigneeAttn:["shipper attn","shipper attention","shipper contact","shipper name"]
   }[kind] || [];
   if(exact.includes(h)) return 100;
   const rules = {
@@ -225,7 +225,7 @@ function candidateScore(header, kind){
     manufacturerAddress:[["manufacturer",5],["address",4]],
     manufacturerPhone:[["manufacturer",5],["phone",4],["tel",3]],
     manufacturerEmail:[["manufacturer",5],["email",4]],
-    consigneeAttn:[["authorized",6],["person",5],["shipper",4],["attn",3],["attention",3]]
+    consigneeAttn:[["shipper",6],["attn",5],["attention",5],["contact",2],["name",1]]
   }[kind] || [];
   let score=0;
   for(const [term,val] of rules) if(h.includes(term)) score+=val;
@@ -373,7 +373,7 @@ async function fillPdf(row, rowNumber, matchedCodes){
   // 35. Submitter company name = Manufacturer Name (Column H)
   draw(cell(row,"manufacturerName"), 151, 90, 245, 7.5);
 
-  // 37. Submitter name = Authorized Person (fallback: Shipper Attn)
+  // 37. Submitter name = Shipper Attn / Shipper Attention
   draw(cell(row,"consigneeAttn"), 116, 74, 255, 7.5);
 
   // 38. Submitter phone number = Column J (Manufacturer Phone in uploaded Excel)
