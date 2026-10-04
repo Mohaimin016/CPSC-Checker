@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shipper Attn Column Verification</title>
+<style>
+:root{font-family:Arial,sans-serif;color:#172033;background:#f7f4ef}
+body{margin:0;padding:24px}.wrap{max-width:1100px;margin:auto}
+h1{font-size:26px;margin:0 0 8px}.note{color:#475569;line-height:1.5}
+.card{background:#fff;border:1px solid #ddd6ce;border-radius:12px;padding:20px;margin:18px 0}
+label{display:block;font-weight:bold;margin:12px 0 6px}
+input,button{font:inherit}input[type=file]{width:100%;padding:12px;border:1px solid #cbd5e1;border-radius:8px;background:#fff}
+button{background:#6b0099;color:white;border:0;border-radius:8px;padding:11px 16px;cursor:pointer;font-weight:bold}
+.status{padding:12px;background:#f0fdf4;border-radius:8px;margin-top:14px;white-space:pre-wrap}
+.err{background:#fef2f2;color:#991b1b}
+table{width:100%;border-collapse:collapse;margin-top:14px;background:#fff}th,td{text-align:left;padding:10px;border-bottom:1px solid #e5e7eb;vertical-align:top}th{background:#f8fafc}
+code{background:#f1f5f9;padding:2px 5px;border-radius:4px;overflow-wrap:anywhere}
+.good{color:#166534;font-weight:bold}.bad{color:#b91c1c;font-weight:bold}
+</style>
+</head>
+<body><div class="wrap">
+<h1>Shipper Attn — Column Verification</h1>
+<p class="note">This is a separate diagnostic page. It does not generate or modify CPSC forms. Upload the exact CSV you are using in the generator; it will display the detected headers and the row values around the name fields so we can identify the correct source column.</p>
+<div class="card">
+<label for="file">Upload shipment / invoice CSV</label>
+<input id="file" type="file" accept=".csv,text/csv">
+<div id="status" class="status">Choose your CSV file to begin.</div>
+</div>
+<div class="card" id="report" hidden></div>
+</div>
+<script>
+const fileInput=document.getElementById('file');
+const statusEl=document.getElementById('status');
+const report=document.getElementById('report');
+function parseCSV(text){
+  const rows=[];let row=[],field='',quoted=false;
+  text=text.replace(/^\uFEFF/,'');
+  for(let i=0;i<text.length;i++){
+    const c=text[i],n=text[i+1];
+    if(quoted){
+      if(c==='"'&&n==='"'){field+='"';i++;}
+      else if(c==='"')quoted=false;
+      else field+=c;
+    }else{
+      if(c==='"')quoted=true;
+      else if(c===','){row.push(field);field='';}
+      else if(c==='\n'){row.push(field.replace(/\r$/,''));rows.push(row);row=[];field='';}
+      else field+=c;
+    }
+  }
+  if(field.length||row.length){row.push(field.replace(/\r$/,''));rows.push(row);}
+  return rows.filter(r=>r.some(v=>String(v).trim()!==''));
+}
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function norm(s){return String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();}
+fileInput.addEventListener('change',async()=>{
+ report.hidden=true;report.innerHTML='';
+ const file=fileInput.files?.[0];if(!file)return;
+ try{
+  const text=await file.text();const rows=parseCSV(text);
+  if(rows.length<2)throw new Error('CSV has no data rows.');
+  const headers=rows[0].map(h=>String(h).trim());
+  const relevant=headers.map((h,i)=>({h,i,letter:(i+10).toString(36).toUpperCase()})).filter(x=>/shipper|consignee|attn|attention|authorized|contact|name/i.test(x.h));
+  const rowMatches=rows.slice(1).map((r,j)=>({r,excelRow:j+2})).filter(x=>x.r.some(v=>String(v).includes('INV-2026-002938'))||x.r.some(v=>String(v).includes('818719958527')));
+  const showRows=rowMatches.length?rowMatches:rows.slice(1,Math.min(rows.length,4)).map((r,j)=>({r,excelRow:j+2}));
+  let out='<h2>Detected columns</h2><p class="note">Column letters below are calculated from the actual CSV position. Verify the column containing SREEBASH PAUL.</p><table><thead><tr><th>Column</th><th>Header</th></tr></thead><tbody>';
+  for(const x of relevant)out+='<tr><td>'+esc(x.letter)+' ('+(x.i+1)+')</td><td>'+esc(x.h)+'</td></tr>';
+  out+='</tbody></table>';
+  out+='<h2>Shipment row values</h2>';
+  if(!rowMatches.length)out+='<p class="note">Could not find the previously mentioned invoice/AWB. Showing the first few data rows instead.</p>';
+  for(const item of showRows){
+   out+='<h3>CSV row '+item.excelRow+'</h3><table><thead><tr><th>Column</th><th>Header</th><th>Value</th></tr></thead><tbody>';
+   headers.forEach((h,i)=>{const val=String(item.r[i]??'');if(val.trim()!==''||/shipper|consignee|attn|attention|authorized|contact|name/i.test(h))out+='<tr><td>'+esc(String.fromCharCode(65+i))+' ('+(i+1)+')</td><td>'+esc(h)+'</td><td>'+esc(val)+'</td></tr>';});
+   out+='</tbody></table>';
+  }
+  out+='<p class="note"><b>Next step:</b> send me a screenshot of this report or paste the row values. This will establish the exact column to map into CPSC Part V, Item 37.</p>';
+  report.innerHTML=out;report.hidden=false;
+  statusEl.className='status';statusEl.textContent='Read '+rows.length+' rows and '+headers.length+' columns from '+file.name+'. Processing was done locally in your browser; the file was not uploaded.';
+ }catch(e){statusEl.className='status err';statusEl.textContent='Could not read this CSV: '+e.message;}
+});
+</script></body></html>
