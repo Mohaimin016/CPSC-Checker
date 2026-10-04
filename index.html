@@ -374,7 +374,7 @@ async function fillPdf(row, rowNumber, matchedCodes){
   draw(cell(row,"manufacturerName"), 151, 90, 245, 7.5);
 
   // 37. Submitter name = Shipper Attn / Shipper Attention
-  draw(cell(row,"consigneeAttn"), 116, 74, 255, 7.5);
+  draw(row[6], 116, 74, 255, 7.5); // Directly use Column G — Shipper Attn
 
   // 38. Submitter phone number = Column J (Manufacturer Phone in uploaded Excel)
   // Positioned on the item 38 field, beside the submitter name row.
@@ -435,7 +435,7 @@ async function scan(){
     const r=hitRows[i].row;
     const url=URL.createObjectURL(new Blob([f.bytes],{type:"application/pdf"}));
     f.url=url;
-    html+=`<tr><td>${i+1}</td><td>${esc(r[0]||"")}</td><td>${esc(cell(r,"manufacturerName"))}</td><td>${esc(cell(r,"consigneeAttn"))}</td><td>${f.matchedCodes.map(c=>`<span class="badge">${esc(c)}</span>`).join(" ")}</td><td><a class="view-btn" href="${url}" target="_blank" rel="noopener">View PDF</a><a href="${url}" download="${esc(f.name)}">Download PDF</a></td></tr>`;
+    html+=`<tr><td>${i+1}</td><td>${esc(r[0]||"")}</td><td>${esc(cell(r,"manufacturerName"))}</td><td>${esc(r[6]||"")}</td><td>${f.matchedCodes.map(c=>`<span class="badge">${esc(c)}</span>`).join(" ")}</td><td><a class="view-btn" href="${url}" target="_blank" rel="noopener">View PDF</a><a href="${url}" download="${esc(f.name)}">Download PDF</a></td></tr>`;
   });
   html+=`</tbody></table>`;
   document.getElementById("results").innerHTML=html;
