@@ -152,7 +152,7 @@ body.cpsc-locked { overflow: hidden; }
   <div style="display:none" aria-hidden="true">
 <div class="card">
     <h2>2. Manufacturer / Submitter column mapping</h2>
-    <p class="note">Fixed mapping: <b>D = Tracking Number</b>, <b>H = Manufacturer Name</b>, <b>I = Manufacturer Address</b>, <b>K = Submitter Signature</b>, <b>T = HS/HTS Code</b>. Phone, email and Consignee Attn remain selectable.</p>
+    <p class="note">Fixed mapping: <b>D = Tracking Number</b>, <b>H = Manufacturer Name</b>, <b>I = Manufacturer Address</b>, <b>K = Submitter Signature</b>, <b>T = HS/HTS Code</b>. Phone, email and Shipper Attn is used for Submitter Name (Part V, Item 37).</p>
     <div class="mapping">
       <div class="field"><label>Manufacturer name — Column H</label><select id="manufacturerName" disabled></select></div>
       <div class="field"><label>Manufacturer address — Column I</label><select id="manufacturerAddress" disabled></select></div>
@@ -430,7 +430,7 @@ async function scan(){
   }
   document.getElementById("zipBtn").disabled=false;
 
-  let html=`<table><thead><tr><th>#</th><th>Invoice / Row</th><th>Manufacturer</th><th>Consignee Attn</th><th>Matched CPSC HTS</th><th>Download</th></tr></thead><tbody>`;
+  let html=`<table><thead><tr><th>#</th><th>Invoice / Row</th><th>Manufacturer</th><th>Shipper Attn</th><th>Matched CPSC HTS</th><th>Download</th></tr></thead><tbody>`;
   generatedFiles.forEach((f,i)=>{
     const r=hitRows[i].row;
     const url=URL.createObjectURL(new Blob([f.bytes],{type:"application/pdf"}));
@@ -472,6 +472,7 @@ document.getElementById("dataFile").addEventListener("change", async e=>{
     populateSelect("manufacturerPhone","manufacturerPhone");
     populateSelect("manufacturerEmail","manufacturerEmail");
     populateSelect("consigneeAttn","consigneeAttn");
+    document.getElementById("consigneeAttn").value="6"; // Column G — Shipper Attn
     document.getElementById("manufacturerName").value="7";    // Column H
     document.getElementById("manufacturerAddress").value="8"; // Column I
     populateSelect("submitterSignature","consigneeAttn");
