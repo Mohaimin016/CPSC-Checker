@@ -158,7 +158,7 @@ body.cpsc-locked { overflow: hidden; }
       <div class="field"><label>Manufacturer phone</label><select id="manufacturerPhone"></select></div>
       <div class="field"><label>Manufacturer email</label><select id="manufacturerEmail" disabled><option value="">Blank — not written to PDF</option></select></div>
       <div class="field"><label>Submitter name — Shipper Attn (fixed Column G)</label><select id="consigneeAttn" disabled><option value="6">G — Shipper Attn</option></select></div>
-      <div class="field"><label>Submitter signature — Column K</label><select id="submitterSignature" disabled></select></div>
+      <div class="field"><label>Submitter signature — Column G</label><select id="submitterSignature" disabled></select></div>
     </div>
     <p class="note">
       Only the fields you requested are written to the form. Column J (Manufacturer Phone) is written to Part V item 38, Submitter Phone Number. The CPSC Email address field is intentionally kept blank.
@@ -389,7 +389,7 @@ async function fillPdf(row, rowNumber, matchedCodes){
   // 40. Date = CURRENT DATE
   draw(currentDate, 467, 55, 96, 7.5);
 
-  // 41. Submitter signature = Column K — placed directly on the printed signature underline
+  // 41. Submitter signature = Column G — placed directly on the printed signature underline
   // 41. Submitter signature — place on the actual 41 underline,
   // below item 40 and clear of item 39.
   // 41. Submitter signature — raised one scale above the previous position
@@ -477,7 +477,7 @@ document.getElementById("dataFile").addEventListener("change", async e=>{
     document.getElementById("manufacturerName").value="7";    // Column H
     document.getElementById("manufacturerAddress").value="8"; // Column I
     populateSelect("submitterSignature","consigneeAttn");
-    document.getElementById("submitterSignature").value="10"; // Column K
+    document.getElementById("submitterSignature").value="10"; // Column G
     document.getElementById("scanBtn").disabled=false;
     status.innerHTML=`<div class="status ok">Loaded <b>${esc(file.name)}</b> — ${workbookRows.length} data row(s), ${headers.length} column(s). Column T header: <b>${esc(headers[19])}</b> | Shipper Attention source: <b>Column G — ${esc(headers[6] || "Column G header missing")}</b> | Manufacturer Name: H | Manufacturer Address: I.</div>`;
     document.getElementById("scanStatus").innerHTML="";
