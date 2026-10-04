@@ -158,7 +158,7 @@ body.cpsc-locked { overflow: hidden; }
       <div class="field"><label>Manufacturer address — Column I</label><select id="manufacturerAddress" disabled></select></div>
       <div class="field"><label>Manufacturer phone</label><select id="manufacturerPhone"></select></div>
       <div class="field"><label>Manufacturer email</label><select id="manufacturerEmail" disabled><option value="">Blank — not written to PDF</option></select></div>
-      <div class="field"><label>Submitter name — Shipper Attn</label><select id="consigneeAttn"></select></div>
+      <div class="field"><label>Submitter name — Shipper Attn (Column G)</label><select id="consigneeAttn" disabled><option value="6">G — Shipper Attn</option></select></div>
       <div class="field"><label>Submitter signature — Column K</label><select id="submitterSignature" disabled></select></div>
     </div>
     <p class="note">
@@ -374,7 +374,7 @@ async function fillPdf(row, rowNumber, matchedCodes){
   draw(cell(row,"manufacturerName"), 151, 90, 245, 7.5);
 
   // 37. Submitter name = Shipper Attn / Shipper Attention
-  draw(cell(row,"consigneeAttn"), 116, 74, 255, 7.5); // Use the column identified by the Shipper Attn header
+  draw(row[6] ?? "", 116, 74, 255, 7.5); // ALWAYS use Column G — Shipper Attn for Part V Item 37
 
   // 38. Submitter phone number = Column J (Manufacturer Phone in uploaded Excel)
   // Positioned on the item 38 field, beside the submitter name row.
@@ -435,7 +435,7 @@ async function scan(){
     const r=hitRows[i].row;
     const url=URL.createObjectURL(new Blob([f.bytes],{type:"application/pdf"}));
     f.url=url;
-    html+=`<tr><td>${i+1}</td><td>${esc(r[0]||"")}</td><td>${esc(cell(r,"manufacturerName"))}</td><td>${esc(cell(r,"consigneeAttn"))}</td><td>${f.matchedCodes.map(c=>`<span class="badge">${esc(c)}</span>`).join(" ")}</td><td><a class="view-btn" href="${url}" target="_blank" rel="noopener">View PDF</a><a href="${url}" download="${esc(f.name)}">Download PDF</a></td></tr>`;
+    html+=`<tr><td>${i+1}</td><td>${esc(r[0]||"")}</td><td>${esc(cell(r,"manufacturerName"))}</td><td>${esc(r[6] ?? "")}</td><td>${f.matchedCodes.map(c=>`<span class="badge">${esc(c)}</span>`).join(" ")}</td><td><a class="view-btn" href="${url}" target="_blank" rel="noopener">View PDF</a><a href="${url}" download="${esc(f.name)}">Download PDF</a></td></tr>`;
   });
   html+=`</tbody></table>`;
   document.getElementById("results").innerHTML=html;
@@ -473,12 +473,7 @@ document.getElementById("dataFile").addEventListener("change", async e=>{
     populateSelect("manufacturerEmail","manufacturerEmail");
     populateSelect("consigneeAttn","consigneeAttn");
     // Select the actual Shipper Attn/Attention column by its header, not a fixed column letter.
-    const shipperAttnIndex = headers.findIndex(h => {
-      const normalized = String(h || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-      return normalized === "shipper attn" || normalized === "shipper attention" ||
-             normalized === "shipper attention name" || normalized === "shipper contact";
-    });
-    if (shipperAttnIndex >= 0) document.getElementById("consigneeAttn").value = String(shipperAttnIndex);
+    document.getElementById("consigneeAttn").value = "6"; // Fixed source: Column G — Shipper Attn
     document.getElementById("manufacturerName").value="7";    // Column H
     document.getElementById("manufacturerAddress").value="8"; // Column I
     populateSelect("submitterSignature","consigneeAttn");
