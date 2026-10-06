@@ -256,17 +256,22 @@ function dateMinus7(){
 function cleanFilename(s){return String(s||"row").replace(/[\\/:*?"<>|]+/g,"_").replace(/\s+/g,"_").slice(0,90);}
 function b64ToBytes(b64){ const bin=atob(b64); const a=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) a[i]=bin.charCodeAt(i); return a; }
 function formatTrackingNumber(v){
-  let s=String(v ?? "").trim();
+  if(v===null || v===undefined) return "";
+
+  let s=String(v).trim();
   if(!s) return "";
 
-  // AWB/tracking numbers are identifiers. Accept Excel text, numeric,
-  // comma-formatted, or scientific-notation input and output plain digits.
+  // Excel Column D tracking-number filter:
+  // convert numeric-looking values to a plain tracking number before
+  // grouping rows or printing the value on the CPSC PDF.
   s=s.replace(/,/g,"").replace(/^\\s+|\\s+$/g,"");
 
   // Remove an Excel integer artifact such as 123456789012.0
-  if(/^\\d+\\.0+$/.test(s)) s=s.replace(/\\.0+$/,"");
+  if(/^\\d+\\.0+$/.test(s)){
+    s=s.replace(/\\.0+$/,"");
+  }
 
-  // Convert scientific notation when Excel/CSV supplied it that way.
+  // Convert Excel scientific notation to its full numeric form.
   if(/^[+-]?\\d+(?:\\.\\d+)?[eE][+-]?\\d+$/.test(s)){
     const parts=s.toLowerCase().split("e");
     const mantissa=parts[0];
@@ -274,24 +279,28 @@ function formatTrackingNumber(v){
     const sign=mantissa.startsWith("-") ? "-" : "";
     const unsigned=mantissa.replace(/^[+-]/,"");
     const digits=unsigned.replace(".","");
-    const decimalPos=(unsigned.indexOf(".")>=0 ? unsigned.indexOf(".") : unsigned.length) + exponent;
-    if(decimalPos <= 0){
-      s=sign + "0." + "0".repeat(-decimalPos) + digits;
-    }else if(decimalPos >= digits.length){
-      s=sign + digits + "0".repeat(decimalPos-digits.length);
+    const decimalIndex=unsigned.indexOf(".");
+    const originalDecimalPos=(decimalIndex>=0 ? decimalIndex : unsigned.length);
+    const targetDecimalPos=originalDecimalPos+exponent;
+
+    if(targetDecimalPos<=0){
+      s=sign+"0."+ "0".repeat(-targetDecimalPos) + digits;
+    }else if(targetDecimalPos>=digits.length){
+      s=sign+digits+"0".repeat(targetDecimalPos-digits.length);
     }else{
-      s=sign + digits.slice(0,decimalPos) + "." + digits.slice(decimalPos);
+      s=sign+digits.slice(0,targetDecimalPos)+"."+digits.slice(targetDecimalPos);
     }
   }
 
-  // For AWB values, remove any decimal portion left after numeric conversion.
-  if(/^\\d+\\.\\d+$/.test(s)) s=s.split(".")[0];
+  // Tracking numbers are identifiers: discard any remaining decimal
+  // portion and keep the numeric-looking value in plain form.
+  if(/^\\d+\\.\\d+$/.test(s)){
+    s=s.split(".")[0];
+  }
 
-  // Output as plain numeric-looking digits: no commas, no apostrophe,
-  // no scientific notation.
-  return s;
+  // Final cleanup for values that Excel/CSV may have wrapped in spaces.
+  return s.trim();
 }
-
 async function fillPdf(row, rowNumber, formItems){
   const {PDFDocument, StandardFonts} = PDFLib;
   const outDoc=await PDFDocument.create();
