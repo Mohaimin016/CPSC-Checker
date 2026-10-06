@@ -455,7 +455,7 @@ async function scan(){
   }
 
   const totalPages=hitGroups.reduce((sum,g)=>sum+g.items.length,0);
-  status.innerHTML=`<div class="status ok"><b>${hitGroups.length}</b> tracking number PDF(s) matched, containing <b>${totalPages}</b> CPSC form page(s). Generating…</div>`;
+  status.innerHTML=`<div class="status ok"><b>${hitGroups.length}</b> tracking number PDF(s) matched, containing <b>${totalPages}</b> CPSC form page(s). Generated.</div>`;
 
   for(const group of hitGroups){
     const f=await fillPdf(group.row,group.rowNumber,group.items);
