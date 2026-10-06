@@ -500,10 +500,29 @@ document.getElementById("dataFile").addEventListener("change", async e=>{
       wb=XLSX.read(ab,{type:"array",raw:true});
     }
     const ws=wb.Sheets[wb.SheetNames[0]];
+    // Keep the formatted matrix for normal display fields, but also read
+    // the raw worksheet values so Column D tracking numbers retain their
+    // full integer precision. A large AWB can be displayed by Excel as
+    // 8.77973E+11 even though the actual value is 877972636048.
     const matrix=XLSX.utils.sheet_to_json(ws,{header:1,defval:"",raw:false});
+    const rawMatrix=XLSX.utils.sheet_to_json(ws,{header:1,defval:"",raw:true});
     if(matrix.length<2) throw new Error("The uploaded file has no usable data rows.");
     headers=matrix[0].map(v=>String(v??""));
     workbookRows=matrix.slice(1).filter(r=>r.some(v=>String(v??"").trim()!==""));
+
+    // Replace only Column D with the raw value so tracking numbers are never
+    // reconstructed from Excel's rounded scientific-notation display.
+    let rawRowIndex=0;
+    workbookRows.forEach(row=>{
+      while(rawRowIndex+1<rawMatrix.length){
+        rawRowIndex++;
+        const rawRow=rawMatrix[rawRowIndex];
+        if(rawRow && rawRow.some(v=>String(v??"").trim()!=="")){
+          row[3]=rawRow[3] ?? row[3];
+          break;
+        }
+      }
+    });
     if(headers.length<20) throw new Error(`The uploaded file has only ${headers.length} columns. Column T (20th column) is required.`);
     populateSelect("manufacturerName","manufacturerName");
     populateSelect("manufacturerAddress","manufacturerAddress");
