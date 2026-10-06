@@ -373,7 +373,7 @@ async function fillPdf(row, rowNumber, matchedCodes){
   const goodsDescription = String(row[18] ?? "").trim();
   const description80 = goodsDescription.slice(0, 80);
   // Place the description in the printed Description field near the top of the CPSC form.
-  draw(description80, 116, 640, 444, 7.5);
+  draw(description80, 116, 638, 444, 7.5);
 
   // Part V — Submitter Information
   // 35. Submitter company name = Manufacturer Name (Column H)
