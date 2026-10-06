@@ -261,44 +261,36 @@ function formatTrackingNumber(v){
   let s=String(v).trim();
   if(!s) return "";
 
-  // Excel Column D tracking-number filter:
-  // convert numeric-looking values to a plain tracking number before
-  // grouping rows or printing the value on the CPSC PDF.
-  s=s.replace(/,/g,"").replace(/^\\s+|\\s+$/g,"");
+  // Column D tracking numbers are identifiers. Never allow Excel
+  // scientific notation to be printed on the CPSC PDF.
+  s=s.replace(/,/g,"").trim();
 
-  // Remove an Excel integer artifact such as 123456789012.0
-  if(/^\\d+\\.0+$/.test(s)){
-    s=s.replace(/\\.0+$/,"");
-  }
+  // Expand scientific notation exactly as text.
+  // Example: 8.1872E+11 -> 818720000000
+  const sci=s.match(/^([+-]?)(\d+)(?:\.(\d+))?[eE]([+-]?\d+)$/);
+  if(sci){
+    const sign=sci[1] === "-" ? "-" : "";
+    const whole=sci[2] || "";
+    const fraction=sci[3] || "";
+    const exponent=parseInt(sci[4],10);
+    const digits=(whole+fraction).replace(/^0+(?=\d)/,"");
+    const decimalPos=whole.length+exponent;
 
-  // Convert Excel scientific notation to its full numeric form.
-  if(/^[+-]?\\d+(?:\\.\\d+)?[eE][+-]?\\d+$/.test(s)){
-    const parts=s.toLowerCase().split("e");
-    const mantissa=parts[0];
-    const exponent=parseInt(parts[1],10);
-    const sign=mantissa.startsWith("-") ? "-" : "";
-    const unsigned=mantissa.replace(/^[+-]/,"");
-    const digits=unsigned.replace(".","");
-    const decimalIndex=unsigned.indexOf(".");
-    const originalDecimalPos=(decimalIndex>=0 ? decimalIndex : unsigned.length);
-    const targetDecimalPos=originalDecimalPos+exponent;
-
-    if(targetDecimalPos<=0){
-      s=sign+"0."+ "0".repeat(-targetDecimalPos) + digits;
-    }else if(targetDecimalPos>=digits.length){
-      s=sign+digits+"0".repeat(targetDecimalPos-digits.length);
+    if(decimalPos<=0){
+      s=sign+"0."+("0".repeat(-decimalPos))+digits;
+    }else if(decimalPos>=digits.length){
+      s=sign+digits+"0".repeat(decimalPos-digits.length);
     }else{
-      s=sign+digits.slice(0,targetDecimalPos)+"."+digits.slice(targetDecimalPos);
+      s=sign+digits.slice(0,decimalPos)+"."+digits.slice(decimalPos);
     }
   }
 
-  // Tracking numbers are identifiers: discard any remaining decimal
-  // portion and keep the numeric-looking value in plain form.
-  if(/^\\d+\\.\\d+$/.test(s)){
+  // Remove Excel integer artifacts such as 123456789012.0.
+  // Tracking numbers should not retain a decimal portion.
+  if(/^\d+\.\d+$/.test(s)){
     s=s.split(".")[0];
   }
 
-  // Final cleanup for values that Excel/CSV may have wrapped in spaces.
   return s.trim();
 }
 async function fillPdf(row, rowNumber, formItems){
