@@ -368,6 +368,13 @@ async function fillPdf(row, rowNumber, matchedCodes){
   // 24. Email address — intentionally left blank
   // No value is written to the CPSC form email field.
 
+  // Part IV — Description
+  // Source: Excel Column S (Goods). Maximum 80 characters.
+  const goodsDescription = String(row[18] ?? "").trim();
+  const description80 = goodsDescription.slice(0, 80);
+  // Place the description in the printed Description field near the top of the CPSC form.
+  draw(description80, 116, 665, 444, 7.5);
+
   // Part V — Submitter Information
   // 35. Submitter company name = Manufacturer Name (Column H)
   draw(cell(row,"manufacturerName"), 151, 90, 245, 7.5);
