@@ -508,21 +508,36 @@ document.getElementById("dataFile").addEventListener("change", async e=>{
     const rawMatrix=XLSX.utils.sheet_to_json(ws,{header:1,defval:"",raw:true});
     if(matrix.length<2) throw new Error("The uploaded file has no usable data rows.");
     headers=matrix[0].map(v=>String(v??""));
-    workbookRows=matrix.slice(1).filter(r=>r.some(v=>String(v??"").trim()!==""));
 
-    // Replace only Column D with the raw value so tracking numbers are never
-    // reconstructed from Excel's rounded scientific-notation display.
-    let rawRowIndex=0;
-    workbookRows.forEach(row=>{
-      while(rawRowIndex+1<rawMatrix.length){
-        rawRowIndex++;
-        const rawRow=rawMatrix[rawRowIndex];
-        if(rawRow && rawRow.some(v=>String(v??"").trim()!=="")){
-          row[3]=rawRow[3] ?? row[3];
-          break;
-        }
+    // Column D must use the worksheet's underlying cell value, not Excel's
+    // formatted/display value. This is critical for AWBs such as:
+    // displayed: 8.77973E+11
+    // underlying value: 877972636048
+    const dataRows=[];
+    for(let sourceIndex=1;sourceIndex<matrix.length;sourceIndex++){
+      const displayRow=matrix[sourceIndex];
+      if(!displayRow || !displayRow.some(v=>String(v??"").trim()!=="")) continue;
+
+      const rawRow=rawMatrix[sourceIndex] || [];
+      const row=displayRow.slice();
+
+      // Prefer the raw worksheet cell for Column D.
+      // For XLSX this is the exact numeric cell value; for CSV it is the
+      // original text value.
+      if(rawRow[3]!==undefined && rawRow[3]!==null && String(rawRow[3]).trim()!==""){
+        row[3]=rawRow[3];
       }
-    });
+
+      // As an additional safeguard, read the actual D cell directly.
+      // cell.v is the underlying value; cell.w is only the formatted display.
+      const dCell=ws[XLSX.utils.encode_cell({r:sourceIndex,c:3})];
+      if(dCell && dCell.v!==undefined && dCell.v!==null){
+        row[3]=dCell.v;
+      }
+
+      dataRows.push(row);
+    }
+    workbookRows=dataRows;
     if(headers.length<20) throw new Error(`The uploaded file has only ${headers.length} columns. Column T (20th column) is required.`);
     populateSelect("manufacturerName","manufacturerName");
     populateSelect("manufacturerAddress","manufacturerAddress");
