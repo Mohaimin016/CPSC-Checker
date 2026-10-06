@@ -368,6 +368,10 @@ async function fillPdf(row, rowNumber, matchedCodes){
   // 24. Email address — intentionally left blank
   // No value is written to the CPSC form email field.
 
+  // Intended use code = Excel Column T (HS/HTS code)
+  const HS = String(row[19] ?? "").trim();
+  draw(HS, 116, 650, 444, 7.5);
+
   // Part IV — Description
   // Source: Excel Column S (Goods). Maximum 80 characters.
   const goodsDescription = String(row[18] ?? "").trim();
