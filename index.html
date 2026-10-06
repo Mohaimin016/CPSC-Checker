@@ -292,164 +292,188 @@ function formatTrackingNumber(v){
   return s;
 }
 
-async function fillPdf(row, rowNumber, matchedCodes){
+async function fillPdf(row, rowNumber, formItems){
   const {PDFDocument, StandardFonts} = PDFLib;
-  const pdfDoc=await PDFDocument.load(b64ToBytes(FORM_PDF_B64));
-  const page=pdfDoc.getPages()[0];
-  const font=await pdfDoc.embedFont(StandardFonts.Helvetica);
-  const bold=await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+  const outDoc=await PDFDocument.create();
+  const templateDoc=await PDFDocument.load(b64ToBytes(FORM_PDF_B64));
+  const font=await outDoc.embedFont(StandardFonts.Helvetica);
+  const pages=[];
 
-  function fit(text, maxWidth, start=8){
-    let s=start;
-    while(s>5.5 && font.widthOfTextAtSize(String(text||""),s)>maxWidth) s-=0.25;
-    return s;
+  for(const item of formItems){
+    const [page]=await outDoc.copyPages(templateDoc,[0]);
+    outDoc.addPage(page);
+    pages.push(page);
+
+    function fit(text, maxWidth, start=8){
+      let s=start;
+      while(s>5.5 && font.widthOfTextAtSize(String(text||""),s)>maxWidth) s-=0.25;
+      return s;
+    }
+    function draw(text,x,y,maxWidth,start=8){
+      text=String(text??"").trim(); if(!text) return;
+      const size=fit(text,maxWidth,start);
+      page.drawText(text,{x,y,size,font});
+    }
+
+    // FINAL COORDINATES — calibrated from the actual supplied CPSC PDF.
+    // pdf-lib uses origin (0,0) at the BOTTOM-LEFT.
+    // The source PDF is 612 x 792 points.
+
+    // Part I
+    const currentDate=todayLocal().str;
+    draw(formatTrackingNumber(row[3]), 123, 714, 175, 7.5);
+    draw(currentDate, 269, 714, 150, 7.5);
+
+    page.drawRectangle({
+      x: 426,
+      y: 663,
+      width: 7,
+      height: 7,
+      color: PDFLib.rgb(0, 0, 0)
+    });
+
+    page.drawRectangle({
+      x: 175,
+      y: 593,
+      width: 8,
+      height: 8,
+      color: PDFLib.rgb(0, 0, 0)
+    });
+
+    // Part III — Manufacturer information
+    draw(cell(row,"manufacturerName"), 130, 257, 255, 7.5);
+    draw(dateMinus7(), 484, 257, 76, 7.5);
+    draw(cell(row,"manufacturerAddress"), 138, 241, 422, 7.5);
+
+    // Intended use code = the individual CPSC HS/HTS code for this page.
+    draw(item.hs, 130, 650, 444, 7.5);
+
+    // Part IV — Description
+    // Source: Excel Column S (Goods), split by "|" into individual descriptions.
+    // Maximum 80 characters per CPSC form page.
+    draw(String(item.description || "").slice(0, 80), 116, 634.5, 444, 7.5);
+
+    // Part V — Submitter Information
+    draw(cell(row,"manufacturerName"), 151, 90, 245, 7.5);
+
+    const shipperAttnHeaderIndex = headers.findIndex(h => /shipper\s*(attn|attention)|shipper attention/i.test(String(h ?? "").trim()));
+    const shipperAttnValue = String(row[6] ?? "").trim() || (shipperAttnHeaderIndex >= 0 ? String(row[shipperAttnHeaderIndex] ?? "").trim() : "");
+    draw(shipperAttnValue, 116, 74, 255, 7.5);
+
+    draw(String(row[9] ?? "").trim(), 502, 74, 102, 7.5);
+    draw(currentDate, 467, 55, 96, 7.5);
+    draw(cell(row,"submitterSignature"), 130, 37, 430, 7.5);
   }
-  function draw(text,x,y,maxWidth,start=8){
-    text=String(text??"").trim(); if(!text) return;
-    const size=fit(text,maxWidth,start);
-    page.drawText(text,{x,y,size,font});
-  }
-  function check(x,y){
-    page.drawLine({start:{x:x,y:y},end:{x:x+4,y:y-4},thickness:1.4});
-    page.drawLine({start:{x:x+4,y:y-4},end:{x:x+11,y:y+5},thickness:1.4});
-  }
 
-  // FINAL COORDINATES — calibrated from the actual supplied CPSC PDF.
-  // pdf-lib uses origin (0,0) at the BOTTOM-LEFT.
-  // The source PDF is 612 x 792 points.
-  //
-  // These positions intentionally start AFTER each printed field label,
-  // directly on the blank underline area.
-
-  // Part I — Disclaim
-  // 1. Tracking number = Column D
-  // 1. Date = current date
-  // Coordinates calibrated to the supplied form's top line.
-  const currentDate=todayLocal().str;
-  draw(formatTrackingNumber(row[3]), 123, 714, 175, 7.5);
-  draw(currentDate, 269, 714, 150, 7.5);
-
-  // 2. Noncommercial transaction checkbox — solid black square
-  // Fill the EXISTING printed checkbox, leaving its border visible.
-  // Calibrated from the supplied CPSC form image:
-  // printed box ≈ x=425, y=662, size ≈9x9 pt.
-  page.drawRectangle({
-    x: 426,
-    y: 663,
-    width: 7,
-    height: 7,
-    color: PDFLib.rgb(0, 0, 0)
-  });
-
-  // 3. Certification exists? — select "No".
-  // The supplied form's actual No box is around PDF x=175, y=594.
-  // Fill only the inside of the printed box so its border remains visible.
-  page.drawRectangle({
-    x: 175,
-    y: 593,
-    width: 8,
-    height: 8,
-    color: PDFLib.rgb(0, 0, 0)
-  });
-
-  // Part III — Manufacturer information
-  // 21. Manufacturer name: underline starts at x=128.3, top y≈527
-  draw(cell(row,"manufacturerName"), 130, 257, 255, 7.5);
-
-  // 22. Manufacturer date: underline starts at x=482.3, top y≈527
-  draw(dateMinus7(), 484, 257, 76, 7.5);
-
-  // 23. Manufacturer address: printed label ends around x=137; enter on the underline after the label
-  draw(cell(row,"manufacturerAddress"), 138, 241, 422, 7.5);
-
-  // 24. Manufacturer phone — intentionally left blank
-  // No value is written to the CPSC form phone field.
-
-  // 24. Email address — intentionally left blank
-  // No value is written to the CPSC form email field.
-
-  // Intended use code = Excel Column T (HS/HTS code)
-  const HS = String(row[19] ?? "").trim();
-  draw(HS, 130, 650, 444, 7.5);
-
-  // Part IV — Description
-  // Source: Excel Column S (Goods). Maximum 80 characters.
-  const goodsDescription = String(row[18] ?? "").trim();
-  const description80 = goodsDescription.slice(0, 80);
-  // Place the description in the printed Description field near the top of the CPSC form.
-  draw(description80, 116, 634.5, 444, 7.5);
-
-  // Part V — Submitter Information
-  // 35. Submitter company name = Manufacturer Name (Column H)
-  draw(cell(row,"manufacturerName"), 151, 90, 245, 7.5);
-
-  // 37. Submitter name = Shipper Attn / Shipper Attention
-  // Prefer physical Column G; if it is blank, fall back to a matching header.
-  const shipperAttnHeaderIndex = headers.findIndex(h => /shipper\s*(attn|attention)|shipper attention/i.test(String(h ?? "").trim()));
-  const shipperAttnValue = String(row[6] ?? "").trim() || (shipperAttnHeaderIndex >= 0 ? String(row[shipperAttnHeaderIndex] ?? "").trim() : "");
-  draw(shipperAttnValue, 116, 74, 255, 7.5);
-
-  // 38. Submitter phone number = Column J (Manufacturer Phone in uploaded Excel)
-  // Positioned on the item 38 field, beside the submitter name row.
-  // 38. Submitter phone number — moved clearly below item 36 onto item 38's own line.
-  // Place the phone on the same baseline as item 38, to the right of its printed label.
-  // Calibrated against the user's generated PDF: item 38 is on the same row as item 37.
-  // Start after the printed "38. Submitter phone number:" label.
-  // Shift phone number 2 inches right from the previously corrected position.
-  // PDF coordinates use points: 2 inches = 144 points.
-  // Shift phone number 1 inch left from the current position (72 PDF points).
-  draw(String(row[9] ?? "").trim(), 502, 74, 102, 7.5);
-
-  // 40. Date = CURRENT DATE
-  draw(currentDate, 467, 55, 96, 7.5);
-
-  // 41. Submitter signature = Column G — placed directly on the printed signature underline
-  // 41. Submitter signature — place on the actual 41 underline,
-  // below item 40 and clear of item 39.
-  // 41. Submitter signature — raised one scale above the previous position
-  draw(cell(row,"submitterSignature"), 130, 37, 430, 7.5);
-
-  const bytes=await pdfDoc.save();
-  const invoice = row[0] || `ROW-${rowNumber}`;
+  const bytes=await outDoc.save();
   const awb = formatTrackingNumber(row[3]);
   const awb12 = awb.replace(/\D/g,"").padStart(12,"0").slice(-12);
-  return {bytes, name:`${awb12}_CPSC.pdf`, matchedCodes};
+  return {
+    bytes,
+    name:`${awb12}_CPSC.pdf`,
+    formCount: formItems.length,
+    formItems
+  };
+}
+
+function splitPipe(value){
+  return String(value ?? "")
+    .split("|")
+    .map(x => x.trim())
+    .filter(Boolean);
+}
+
+function buildFormItems(row){
+  const descriptions = splitPipe(row[18]); // Column S — Goods
+  const hsValues = splitPipe(row[19]);     // Column T — HS/HTS codes
+
+  const items=[];
+  const count=Math.max(descriptions.length, hsValues.length);
+
+  for(let i=0;i<count;i++){
+    const description=descriptions[i] || "";
+    const hs=hsValues[i] || "";
+
+    // Only generate a page when the HS code on this position
+    // matches the embedded CPSC list.
+    const normalized=normalizeCode(hs);
+    if(normalized.length>=8 && CPSC_CODES.includes(normalized)){
+      items.push({description,hs});
+    }
+  }
+
+  return items;
 }
 
 async function scan(){
   generatedFiles=[];
   const status=document.getElementById("scanStatus");
   status.innerHTML='<div class="status">Scanning Column T against the embedded CPSC list…</div>';
-  const hitRows=[];
+
+  // Group by Tracking Number (Column D). Multiple matching rows and/or
+  // multiple "|" separated Description + HS pairs become multiple pages
+  // in the same PDF for that tracking number.
+  const groups=new Map();
+
   for(let i=0;i<workbookRows.length;i++){
     const row=workbookRows[i];
-    const raw=row[19]; // Column T
-    const rowCodes=extractCodes(raw);
-    const hits=rowCodes.filter(c=>CPSC_CODES.includes(c));
-    if(hits.length) hitRows.push({index:i,row,hits});
+    const items=buildFormItems(row);
+    if(!items.length) continue;
+
+    const tracking=formatTrackingNumber(row[3]);
+    const key=tracking || `__ROW_${i+2}`;
+
+    if(!groups.has(key)){
+      groups.set(key,{row, rowNumber:i+2, items:[]});
+    }
+    groups.get(key).items.push(...items);
   }
 
-  if(!hitRows.length){
+  const hitGroups=[...groups.values()];
+
+  if(!hitGroups.length){
     status.innerHTML='<div class="status warn">No Column T HS/HTS code matched the embedded CPSC list.</div>';
     document.getElementById("results").innerHTML="";
     document.getElementById("zipBtn").disabled=true;
     return;
   }
 
-  status.innerHTML=`<div class="status ok"><b>${hitRows.length}</b> row(s) matched the CPSC list. Generating ${hitRows.length} PDF form(s)…</div>`;
-  for(const item of hitRows){
-    const f=await fillPdf(item.row,item.index+2,item.hits);
+  const totalPages=hitGroups.reduce((sum,g)=>sum+g.items.length,0);
+  status.innerHTML=`<div class="status ok"><b>${hitGroups.length}</b> tracking number PDF(s) matched, containing <b>${totalPages}</b> CPSC form page(s). Generating…</div>`;
+
+  for(const group of hitGroups){
+    const f=await fillPdf(group.row,group.rowNumber,group.items);
     generatedFiles.push(f);
   }
+
   document.getElementById("zipBtn").disabled=false;
 
-  let html=`<table><thead><tr><th>#</th><th>Invoice / Row</th><th>Manufacturer</th><th>Shipper Attn (Column G)</th><th>Matched CPSC HTS</th><th>Download</th></tr></thead><tbody>`;
+  let html=`<table><thead><tr><th>#</th><th>Tracking Number</th><th>Invoice / Row</th><th>Manufacturer</th><th>Shipper Attn (Column G)</th><th>CPSC Forms</th><th>Download</th></tr></thead><tbody>`;
+
   generatedFiles.forEach((f,i)=>{
-    const r=hitRows[i].row;
+    const g=hitGroups[i];
+    const r=g.row;
     const url=URL.createObjectURL(new Blob([f.bytes],{type:"application/pdf"}));
     f.url=url;
-    html+=`<tr><td>${i+1}</td><td>${esc(r[0]||"")}</td><td>${esc(cell(r,"manufacturerName"))}</td><td>${esc(String(r[6] ?? "").trim() || (headers.findIndex(h => /shipper\s*(attn|attention)|shipper attention/i.test(String(h ?? "").trim())) >= 0 ? String(r[headers.findIndex(h => /shipper\s*(attn|attention)|shipper attention/i.test(String(h ?? "").trim()))] ?? "").trim() : ""))}</td><td>${f.matchedCodes.map(c=>`<span class="badge">${esc(c)}</span>`).join(" ")}</td><td><a class="view-btn" href="${url}" target="_blank" rel="noopener">View PDF</a><a href="${url}" download="${esc(f.name)}">Download PDF</a></td></tr>`;
+
+    const shipperAttnHeaderIndex=headers.findIndex(h => /shipper\s*(attn|attention)|shipper attention/i.test(String(h ?? "").trim()));
+    const shipperAttn=String(r[6] ?? "").trim() || (shipperAttnHeaderIndex>=0 ? String(r[shipperAttnHeaderIndex] ?? "").trim() : "");
+
+    const itemSummary=f.formItems.map((item,n)=>
+      `<div><b>Page ${n+1}:</b> ${esc(item.hs)} — ${esc(String(item.description).slice(0,80))}</div>`
+    ).join("");
+
+    html+=`<tr>
+      <td>${i+1}</td>
+      <td>${esc(formatTrackingNumber(r[3]))}</td>
+      <td>${esc(r[0]||"")}</td>
+      <td>${esc(cell(r,"manufacturerName"))}</td>
+      <td>${esc(shipperAttn)}</td>
+      <td><b>${f.formCount} page(s)</b><div class="small">${itemSummary}</div></td>
+      <td><a class="view-btn" href="${url}" target="_blank" rel="noopener">View PDF</a><a href="${url}" download="${esc(f.name)}">Download PDF</a></td>
+    </tr>`;
   });
+
   html+=`</tbody></table>`;
   document.getElementById("results").innerHTML=html;
 }
