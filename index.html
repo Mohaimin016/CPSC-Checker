@@ -552,8 +552,7 @@ document.getElementById("dataFile").addEventListener("change", async e=>{
     populateSelect("submitterSignature","consigneeAttn");
     document.getElementById("submitterSignature").value="6"; // Column G
     document.getElementById("scanBtn").disabled=false;
-    const trackingSample=workbookRows.slice(0,3).map(r=>formatTrackingNumber(r[3])).filter(Boolean).join(", ");
-    status.innerHTML=`<div class="status ok">Loaded <b>${esc(file.name)}</b> — ${workbookRows.length} data row(s), ${headers.length} column(s). Column T header: <b>${esc(headers[19])}</b> | Shipper Attention source: <b>Column G — ${esc(headers[6] || "Column G header missing")}</b> | AWB sample: <b>${esc(trackingSample || "—")}</b> | Manufacturer Name: H | Manufacturer Address: I.</div>`;
+    status.innerHTML=`<div class="status ok">Loaded <b>${esc(file.name)}</b>.</div>`;
     document.getElementById("scanStatus").innerHTML="";
     document.getElementById("results").innerHTML="";
     document.getElementById("zipBtn").disabled=true;
