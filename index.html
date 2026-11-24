@@ -314,6 +314,29 @@ async function fillPdf(row, rowNumber, formItems){
   const font=await outDoc.embedFont(StandardFonts.Helvetica);
   const pages=[];
 
+  // Standard Helvetica (WinAnsi) cannot print line breaks, tabs, or non-Latin
+  // characters; pdf-lib throws on them, which silently stopped generation.
+  const charOk=new Map();
+  function pdfSafe(value){
+    let s=String(value??"")
+      .replace(/[\r\n\t\v\f]+/g," ")
+      .replace(/[‘’‚′]/g,"'")
+      .replace(/[“”„″]/g,'"')
+      .replace(/[–—−]/g,"-")
+      .replace(/ /g," ")
+      .replace(/\s+/g," ")
+      .trim();
+    let out="";
+    for(const ch of s){
+      if(!charOk.has(ch)){
+        try{ font.widthOfTextAtSize(ch,8); charOk.set(ch,true); }
+        catch(_){ charOk.set(ch,false); }
+      }
+      out+=charOk.get(ch) ? ch : "?";
+    }
+    return out;
+  }
+
   for(const item of formItems){
     const [page]=await outDoc.copyPages(templateDoc,[0]);
     outDoc.addPage(page);
@@ -325,7 +348,7 @@ async function fillPdf(row, rowNumber, formItems){
       return s;
     }
     function draw(text,x,y,maxWidth,start=8){
-      text=String(text??"").trim(); if(!text) return;
+      text=pdfSafe(text); if(!text) return;
       const size=fit(text,maxWidth,start);
       page.drawText(text,{x,y,size,font});
     }
@@ -455,13 +478,27 @@ async function scan(){
   }
 
   const totalPages=hitGroups.reduce((sum,g)=>sum+g.items.length,0);
-  status.innerHTML=`<div class="status ok"><b>${hitGroups.length}</b> tracking number PDF(s) matched, containing <b>${totalPages}</b> CPSC form page(s). Generated.</div>`;
+  status.innerHTML=`<div class="status">Generating ${hitGroups.length} PDF(s)…</div>`;
 
+  const okGroups=[];
+  const failures=[];
   for(const group of hitGroups){
-    const f=await fillPdf(group.row,group.rowNumber,group.items);
-    generatedFiles.push(f);
+    try{
+      const f=await fillPdf(group.row,group.rowNumber,group.items);
+      generatedFiles.push(f);
+      okGroups.push(group);
+    }catch(err){
+      console.error("CPSC PDF failed for row",group.rowNumber,err);
+      failures.push(`Row ${group.rowNumber} (${esc(formatTrackingNumber(group.row[3]))}): ${esc(err && err.message || err)}`);
+    }
   }
+  hitGroups.length=0; hitGroups.push(...okGroups);
 
+  const okPages=okGroups.reduce((sum,g)=>sum+g.items.length,0);
+  status.innerHTML=`<div class="status ok"><b>${okGroups.length}</b> tracking number PDF(s) generated, containing <b>${okPages}</b> CPSC form page(s).</div>`
+    + (failures.length ? `<div class="status error"><b>${failures.length}</b> PDF(s) could not be generated:<br>${failures.join("<br>")}</div>` : "");
+
+  if(!generatedFiles.length){ document.getElementById("results").innerHTML=""; return; }
   document.getElementById("zipBtn").disabled=false;
 
   let html=`<table><thead><tr><th>#</th><th>Tracking Number</th><th>Invoice / Row</th><th>Manufacturer</th><th>Shipper Attn (Column G)</th><th>CPSC Forms</th><th>Download</th></tr></thead><tbody>`;
@@ -562,7 +599,13 @@ document.getElementById("dataFile").addEventListener("change", async e=>{
   }
 });
 
-document.getElementById("scanBtn").addEventListener("click",scan);
+document.getElementById("scanBtn").addEventListener("click",async ()=>{
+  try{ await scan(); }
+  catch(err){
+    console.error(err);
+    document.getElementById("scanStatus").innerHTML=`<div class="status error">Error: ${esc(err && err.message || err)}</div>`;
+  }
+});
 document.getElementById("zipBtn").addEventListener("click",downloadZip);
 </script>
 
